@@ -6,9 +6,11 @@
  */
 package imServer.echo;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 
 /**
  * Handler implementation for the echo server.
@@ -59,8 +61,12 @@ public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) {
-		System.out.println("Server channelRead:"+msg);
-		ctx.write(msg);
+		 ByteBuf in = (ByteBuf) msg;
+		    try {
+		    	System.out.println(in.toString(io.netty.util.CharsetUtil.UTF_8));
+		    } finally {
+		        ReferenceCountUtil.release(msg); // (2)
+		    }
 	}
 
 	@Override
