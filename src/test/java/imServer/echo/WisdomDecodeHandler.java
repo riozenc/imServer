@@ -6,9 +6,9 @@
  */
 package imServer.echo;
 
-import java.nio.charset.Charset;
 import java.util.List;
 
+import imServer.exception.netty.msgbox.ProtocolCheckException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -18,49 +18,55 @@ public class WisdomDecodeHandler extends ByteToMessageDecoder {
 	@Override
 	protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
 		// TODO Auto-generated method stub
-		in.markReaderIndex();
-		System.out.println(in.readInt());
-		System.out.println(in.readInt());
-		System.out.println(in.readInt());
-		System.out.println(in.readInt());
-		System.out.println(in.readInt());
-		
-		in.resetReaderIndex();
-		
-		if (in.readableBytes() < 84) {
+
+		ProtocolHeadPackage protocolHeadPackage = new ProtocolHeadPackage();
+
+		// 是否满足headpackeg的长度要求
+		System.out.println(protocolHeadPackage.getHeadLength());
+		if (in.readableBytes() < protocolHeadPackage.getHeadLength()) {
 			return;
 		}
 
+		checkHead(in, protocolHeadPackage);// 校验并赋值
 
-		byte[] packHead = new byte[84];
-		in.readBytes(packHead);
-		
-		byte[] length = new byte[4];
-		in.getBytes(16, length);
-		
-		
-	
-		
-		
-	
+		// 判断完整数据的长度
+		if (in.readableBytes() < protocolHeadPackage.getHeadLength() + protocolHeadPackage.getLen()) {
+			return;
+		}
 
-//		if (magicNumber != 'F') {
-//			in.resetReaderIndex();
-//			throw new Exception("Invalid magic number: " + magicNumber);
-//		}
+		byte[] data = new byte[protocolHeadPackage.getLen()];
+		in.readBytes(data);
 
-		// Wait until the whole data is available.
-		int dataLength = in.readInt();
-		if (in.readableBytes() < dataLength) {
+		// protocolHeadPackage.setMessage(message);
+
+		System.out.println(new String(data));
+	}
+
+	private void checkHead(ByteBuf in, ProtocolHeadPackage protocolHeadPackage) throws ProtocolCheckException {
+		in.markReaderIndex();// 标记位置，用于重新读取完整数据。
+
+		// 进行校验
+		int bs = in.readIntLE();
+
+		if (bs != '1') {
 			in.resetReaderIndex();
-			return;
+			throw new ProtocolCheckException("Invalid bs number: " + bs);
 		}
 
-		// Convert the received data into a new BigInteger.
-		byte[] decoded = new byte[84+15];
-		in.readBytes(decoded);
+		int ver = in.readIntLE();
+		if (ver != '0') {
+			in.resetReaderIndex();
+			throw new ProtocolCheckException("Invalid ver number: " + ver);
+		}
 
-		System.out.println(decoded);
+		protocolHeadPackage.setBs(bs);
+		protocolHeadPackage.setVer(ver);
+		protocolHeadPackage.setCmd(in.readIntLE());
+		protocolHeadPackage.setKey(in.readIntLE());
+		protocolHeadPackage.setLen(in.readIntLE());
+		protocolHeadPackage.setLen2(in.readIntLE());
+		in.getBytes(0, protocolHeadPackage.getUid());
+
 	}
 
 }
